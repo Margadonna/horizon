@@ -19,8 +19,8 @@ class DataSeriesDataset:
     def __init__(self, config:configparser, bucket):
         self.bucket=bucket
         self.url = config.get('APP', 'INFLUX_URL')
-        self.token=config.get('APP','INFLUXDB_TOKEN')
-        self.org=config.get('APP','INFLUX_ORG')
+        self.token='GFdyou7GH1b1Rnduk_Eiueb_zuk6ONC8MKAP4NROKgXAqZyYc8zmVDMbC6b3aDdXyvC9kLngstfNEtOrPw_RSQ=='
+        self.org='Horizon_lab'
         self.client = influxdb_client.InfluxDBClient( 
                                                     url=self.url,
                                                     token=self.token,
@@ -67,11 +67,11 @@ class DataSeriesDataset:
         return pd.DataFrame(data)
         
        
-    def query_to_db (self, start, query_api , stop = '-0', measurement = 'social'):
-        query = f'''from(bucket: "Horizon-data")
+    def query_to_db (self, start, query_api , stop, measurement = '"social"'):
+        query = f'''from(bucket: "Horizon")
         |> range(start: {start}, stop:{stop})
         |> filter(fn: (r) => r._measurement == {measurement})'''
-        tables = query_api.query(query = query, org="Horizon")
+        tables = query_api.query(query = query, org="Horizon_lab")
         return tables
     
     def dataframe_transform (self, df):
@@ -84,34 +84,21 @@ def main():
     # data = {'measurment2':{'time':"2024-09-09T10:00:00.123456Z", "field1":4, "field2":5}}
     
     config = Config()
-    conf = config.read_config('config.ini')
-    dataset = DataSeriesDataset(conf, 'Horizon-data')
+    conf = config.read_config('horizon/config.ini')
+    dataset = DataSeriesDataset(conf, 'Horizon')
     
-    # data = dataset.read_csv_file('social_data_last.csv', ',', 'Период', True, 'social')
+    # data = dataset.read_csv_file('horizon/social_data_last.csv', ',', 'Period', True, 'social')
     # data = Processor.dict_value_to_int(data)
     # for item in data:
     #     dataset.write_data(item)
 
-    query_api = dataset.client.query_api()
-
-    query = """from(bucket: "Horizon-data")
-    |> range(start: 2013-01-01T00:00:00Z)
-    |> filter(fn: (r) => r._measurement == "social")"""
-    tables = query_api.query(query = query, org="Horizon")
-    data = []
-    for table in tables:
-        for record in table.records:
-            data.append(record.values)
-    df = pd.DataFrame(data)
+    tables = dataset.query_to_db('2013-01-01T00:00:00Z', dataset.client.query_api(), '2022-10-01T00:00:00Z')
+    df = dataset.df_forming(tables)
+   
 
     # Преобразование DataFrame
-    result_df = df.pivot_table(index=['_time'], columns=['_field'], values='_value', aggfunc='first').reset_index()
-
-    # Переименование столбцов
-    result_df.columns.name = None  # Удаляем имя индекса
-    result_df.rename(columns={'_time': 'time'}, inplace=True)
-
-    # result_df.to_csv('result.csv')
+    result_df = dataset.dataframe_transform(df)
+    result_df.to_csv('result.csv')
                 
 if __name__=='__main__':
     main()
