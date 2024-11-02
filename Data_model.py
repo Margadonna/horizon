@@ -27,13 +27,13 @@ class DataSeriesDataset:
                                                     org=self.org)
         
         
-    def read_csv_file(self, file_path:str, sep:str, time_field:str, dayfirstind:bool, measurment:str) ->dict:
-        with open (file_path) as data_file:
+    def read_csv_file(self, file_path:str, sep:str, time_field:str, dayfirstind:bool, measurment:str, encode:str='utf-8') ->dict:
+        with open (file_path, encoding=encode) as data_file:
             data = csv.DictReader(data_file, delimiter=sep)
             result = []
             for row in data:
                 row['time'] = parse((row[time_field]), dayfirst=dayfirstind).isoformat() + 'Z'
-                del row[time_field],  row['']        
+                del row[time_field]       
                 result.append({measurment:row})
         # print(result)
         return result
@@ -48,7 +48,6 @@ class DataSeriesDataset:
            tags = list(filter(lambda tag: True if 'tag' in tag else False, value.keys()))
            fields = list(filter(lambda tag: True if ('tag' not in tag) & ('time' not in tag) else False, value.keys()))
            time_field = list(filter(lambda tag: True if (tag == 'time') else False, value.keys())) 
-           
            point = point.time(value[time_field[0]])
            for tag in tags:
                point = point.tag(tag, value[tag])
@@ -67,10 +66,17 @@ class DataSeriesDataset:
         return pd.DataFrame(data)
         
        
-    def query_to_db (self, start, query_api , stop, measurement = '"social"'):
-        query = f'''from(bucket: "Horizon")
-        |> range(start: {start}, stop:{stop})
-        |> filter(fn: (r) => r._measurement == {measurement})'''
+    def query_to_db (self, start, query_api , stop, measurement = '"social"', field = 'all'):
+        if field != 'all':
+            query = f'''from(bucket: "Horizon")
+            |> range(start: {start}, stop:{stop})
+            |> filter(fn: (r) => r._measurement == {measurement})
+            |> filter(fn: (r) => r._field == {field})'''
+            
+        else:
+            query = f'''from(bucket: "Horizon")
+            |> range(start: {start}, stop:{stop})
+            |> filter(fn: (r) => r._measurement == {measurement})'''
         tables = query_api.query(query = query, org="Horizon_lab")
         return tables
     
@@ -87,8 +93,8 @@ def main():
     conf = config.read_config('horizon/config.ini')
     dataset = DataSeriesDataset(conf, 'Horizon')
     
-    # data = dataset.read_csv_file('horizon/social_data_last.csv', ',', 'Period', True, 'social')
-    # data = Processor.dict_value_to_int(data)
+    data = dataset.read_csv_file('horizon/social_data_last.csv', ';', 'Период', True, 'social', 'cp1251')
+    data = Processor.dict_value_to_int(data)
     # for item in data:
     #     dataset.write_data(item)
 

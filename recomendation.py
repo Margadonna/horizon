@@ -4,6 +4,9 @@ from TimeSeriesProperties import TimeSeriesProperties
 from statsmodels.tsa.stattools import acf, pacf
 import numpy as np
 
+
+
+
 class Recommendations:
     def __init__(self, df) -> None:
         self.df = df
@@ -30,8 +33,8 @@ class Recommendations:
         # Определение p и q
         # p - порядок авторегрессии (из PACF)
         # q - порядок скользящей средней (из ACF)
-        p = np.where(lag_pacf > 0.8)[0][-1]  # Последний лаг, где PACF > 0.2
-        q = np.where(lag_acf > 0.8)[0][-1]   # Последний лаг, где ACF > 0.2
+        p = np.where(lag_pacf > 0.6)[0][-1]  # Последний лаг, где PACF > 0.2
+        q = np.where(lag_acf > 0.6)[0][-1]   # Последний лаг, где ACF > 0.2
         return p, q
 
     
@@ -49,13 +52,14 @@ class Recommendations:
             result_df['d'] = d
             res.append(result_df)
         result = pd.concat(res)
+        result.to_csv('stac_res.csv')
         result = result[result.stationary == True].reset_index(drop=True)
         result = result.drop_duplicates(subset = ['name', 'stationary']  )
         recomendation = result.set_index('name')['d'].to_dict()     
         return result, recomendation
 
     def recomendations_ARIMA (self, q_bias=1, p_bias=2):        
-        stac = self.stacionarity_recomendation(5)[1]
+        stac = self.stacionarity_recomendation(6)[1]
         res = {}
         for indicator in stac.keys():
             p,q = self.ar_ma_value_recommend(indicator)
@@ -73,12 +77,12 @@ class Recommendations:
 
 
 def main():
-    df = pd.read_csv('horizon/social_data_last.csv')
-    df = df.drop(['Period', 'Unnamed: 44'], axis=1)
+    df = pd.read_csv('horizon/social_data_last.csv', encoding='cp1251', sep = ';')
+    df = df.drop(['Период'], axis=1)
     # df.info()
     r = Recommendations(df)
-    r.stacionarity_recomendation(4)[0].to_csv('stac.csv')
+    r.stacionarity_recomendation(6)[0].to_csv('stac.csv')
     print(r.recomendations_ARIMA())
-    
+
 if __name__ == '__main__':
     main()
